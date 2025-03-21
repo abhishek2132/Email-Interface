@@ -5,12 +5,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3002,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:5000',  // Your friend's Flask backend URL
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      }
-    }
+    cors: true
   }
 })

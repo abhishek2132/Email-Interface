@@ -1,0 +1,28 @@
+# Web Framework
+fastapi
+uvicorn
+
+# Email Handling
+imapclient
+email==6.0.0a1
+beautifulsoup4
+
+# Elasticsearch
+elasticsearch
+
+# AI & Vector Database
+scikit-learn
+transformers
+faiss-cpu  # Use 'faiss-gpu' for GPU support
+chromadb
+pinecone-client
+
+# Webhook & Slack
+requests
+slack-sdk
+
+# JSON Processing
+pydantic
+
+# Docker (for Elasticsearch & FastAPI)
+docker

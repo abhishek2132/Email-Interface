@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
   AppBar, 
   Box, 
@@ -35,6 +36,10 @@ import {
 import EmailDetail from './components/EmailDetail';
 import ComposeEmail from './components/ComposeEmail';
 
+// Configure axios defaults
+axios.defaults.headers.common['Content-Type'] = 'application/json';
+axios.defaults.headers.common['Accept'] = 'application/json';
+
 const drawerWidth = 240;
 
 function App() {
@@ -42,43 +47,104 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [emails, setEmails] = useState([
-    {
-      id: 1,
-      subject: 'Project Update',
-      sender: 'john@example.com',
-      preview: 'Here are the latest updates on the project...',
-      content: 'Here are the latest updates on the project:\n\n1. Frontend development is 80% complete\n2. Backend API endpoints are defined\n3. Database schema is finalized\n\nNext steps:\n- Complete remaining UI components\n- Integrate with backend\n- Start testing phase\n\nLet me know if you have any questions!',
-      timestamp: '10:30 AM',
-      isStarred: true,
-      labels: ['Work', 'Important'],
-      unread: true,
-      cc: 'team@example.com'
-    },
-    {
-      id: 2,
-      subject: 'Team Meeting Tomorrow',
-      sender: 'alice@example.com',
-      preview: 'Let\'s discuss the upcoming features...',
-      content: 'Hi team,\n\nLet\'s meet tomorrow at 10 AM to discuss:\n\n- Current sprint progress\n- Upcoming feature priorities\n- Technical challenges\n- Resource allocation\n\nPlease come prepared with your updates.\n\nBest regards,\nAlice',
-      timestamp: '9:15 AM',
-      isStarred: false,
-      labels: ['Work'],
-      unread: true,
-      cc: 'team@example.com, manager@example.com'
-    },
-    {
-      id: 3,
-      subject: 'Weekend Plans',
-      sender: 'friend@example.com',
-      preview: 'How about we go hiking this weekend?',
-      content: 'Hey!\n\nThe weather looks perfect for hiking this weekend. I was thinking we could try the new trail everyone\'s been talking about.\n\nWe could start early, around 7 AM, and make a day of it. I\'ll bring snacks!\n\nWhat do you think?\n\nCheers',
-      timestamp: 'Yesterday',
-      isStarred: false,
-      labels: ['Personal'],
-      unread: false
+  const [emails, setEmails] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // API base URL
+  const API_BASE_URL = 'http://localhost:8000';
+
+  // Fetch emails when component mounts or folder changes
+  useEffect(() => {
+    const fetchEmails = async () => {
+      try {
+        setLoading(true);
+        console.log(`Fetching emails from: ${API_BASE_URL}/emails?folder=${selectedFolder}`);
+        
+        // Add a small delay to ensure the backend is ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const response = await axios.get(`${API_BASE_URL}/emails${selectedFolder ? `?folder=${selectedFolder}` : ''}`);
+        console.log('Email data received:', response.data);
+        
+        if (Array.isArray(response.data)) {
+          setEmails(response.data);
+          console.log(`Set ${response.data.length} emails in state`);
+        } else {
+          console.error('Unexpected data format:', response.data);
+          setEmails([]);
+        }
+      } catch (error) {
+        console.error('Error fetching emails:', error);
+        // Display more detailed error information
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Response status:', error.response.status);
+        } else if (error.request) {
+          console.error('No response received:', error.request);
+        } else {
+          console.error('Error message:', error.message);
+        }
+        // Set empty array to prevent endless loading state
+        setEmails([]);
+      } finally {
+        setLoading(false);
+        console.log('Loading state set to false');
+      }
+    };
+
+    fetchEmails();
+    
+    // Add a timeout to ensure loading state doesn't get stuck
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      console.log('Loading timeout triggered');
+    }, 5000);
+    
+    return () => clearTimeout(timeout);
+  }, [selectedFolder]);
+
+  // Handle search
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    try {
+      setLoading(true);
+      console.log(`Searching emails with query: ${searchQuery}`);
+      
+      // Add a small delay to ensure the backend is ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const response = await axios.get(`${API_BASE_URL}/search?query=${encodeURIComponent(searchQuery)}`);
+      console.log('Search results received:', response.data);
+      
+      if (Array.isArray(response.data)) {
+        setEmails(response.data);
+      } else {
+        console.error('Unexpected search result format:', response.data);
+        setEmails([]);
+      }
+    } catch (error) {
+      console.error('Error searching emails:', error);
+      // Display more detailed error information
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+      } else if (error.request) {
+        console.error('No response received:', error.request);
+      } else {
+        console.error('Error message:', error.message);
+      }
+      // Set empty array to prevent endless loading state
+      setEmails([]);
+    } finally {
+      setLoading(false);
     }
-  ]);
+    
+    // Add a timeout to ensure loading state doesn't get stuck
+    setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+  };
 
   const folders = [
     { name: 'Inbox', icon: <InboxIcon />, count: emails.filter(e => e.unread).length },
@@ -96,11 +162,11 @@ function App() {
         break;
       case 'archive':
         setEmails(emails.filter(e => e.id !== email.id));
-        // TODO: Move to archive folder in Flask backend
+        // TODO: Move to archive folder in FastAPI backend
         break;
       case 'delete':
         setEmails(emails.filter(e => e.id !== email.id));
-        // TODO: Delete in Flask backend
+        // TODO: Delete in FastAPI backend
         break;
       case 'markRead':
         setEmails(emails.map(e =>
@@ -134,7 +200,7 @@ function App() {
               sx={{ width: 300 }}
               InputProps={{ disableUnderline: true }}
             />
-            <IconButton>
+            <IconButton onClick={handleSearch}>
               <SearchIcon />
             </IconButton>
           </Box>
@@ -186,94 +252,102 @@ function App() {
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
         <Toolbar />
         <Grid container spacing={2}>
-          {emails.map((email) => (
-            <Grid item xs={12} key={email.id}>
-              <Card 
-                sx={{ 
-                  '&:hover': { 
-                    boxShadow: 6,
-                    cursor: 'pointer'
-                  },
-                  bgcolor: email.unread ? 'action.hover' : 'inherit'
-                }}
-                onClick={() => handleEmailClick(email)}
-              >
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
-                      {email.sender[0].toUpperCase()}
-                    </Avatar>
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography 
-                        variant="subtitle1" 
-                        component="div"
-                        sx={{ fontWeight: email.unread ? 'bold' : 'regular' }}
-                      >
-                        {email.subject}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {email.sender}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {email.timestamp}
-                      </Typography>
-                      <Box>
-                        <Tooltip title="Star">
-                          <IconButton size="small" onClick={(e) => {
-                            e.stopPropagation();
-                            handleEmailAction('star', email);
-                          }}>
-                            {email.isStarred ? <StarIcon color="warning" /> : <StarIcon />}
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Archive">
-                          <IconButton size="small" onClick={(e) => {
-                            e.stopPropagation();
-                            handleEmailAction('archive', email);
-                          }}>
-                            <ArchiveIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton size="small" onClick={(e) => {
-                            e.stopPropagation();
-                            handleEmailAction('delete', email);
-                          }}>
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
+          {loading ? (
+            <Grid item xs={12}>
+              <Typography variant="h6" component="div">
+                Loading...
+              </Typography>
+            </Grid>
+          ) : (
+            emails.map((email) => (
+              <Grid item xs={12} key={email.id}>
+                <Card 
+                  sx={{ 
+                    '&:hover': { 
+                      boxShadow: 6,
+                      cursor: 'pointer'
+                    },
+                    bgcolor: email.unread ? 'action.hover' : 'inherit'
+                  }}
+                  onClick={() => handleEmailClick(email)}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
+                        {email.sender[0].toUpperCase()}
+                      </Avatar>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography 
+                          variant="subtitle1" 
+                          component="div"
+                          sx={{ fontWeight: email.unread ? 'bold' : 'regular' }}
+                        >
+                          {email.subject}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {email.sender}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {email.timestamp}
+                        </Typography>
+                        <Box>
+                          <Tooltip title="Star">
+                            <IconButton size="small" onClick={(e) => {
+                              e.stopPropagation();
+                              handleEmailAction('star', email);
+                            }}>
+                              {email.isStarred ? <StarIcon color="warning" /> : <StarIcon />}
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Archive">
+                            <IconButton size="small" onClick={(e) => {
+                              e.stopPropagation();
+                              handleEmailAction('archive', email);
+                            }}>
+                              <ArchiveIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton size="small" onClick={(e) => {
+                              e.stopPropagation();
+                              handleEmailAction('delete', email);
+                            }}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       </Box>
                     </Box>
-                  </Box>
-                  <Typography 
-                    variant="body2" 
-                    color="text.secondary"
-                    sx={{ 
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                    }}
-                  >
-                    {email.preview}
-                  </Typography>
-                  <Box sx={{ mt: 1 }}>
-                    {email.labels.map((label) => (
-                      <Chip
-                        key={label}
-                        label={label}
-                        size="small"
-                        sx={{ mr: 0.5 }}
-                      />
-                    ))}
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                      sx={{ 
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                      }}
+                    >
+                      {email.preview}
+                    </Typography>
+                    <Box sx={{ mt: 1 }}>
+                      {email.labels.map((label) => (
+                        <Chip
+                          key={label}
+                          label={label}
+                          size="small"
+                          sx={{ mr: 0.5 }}
+                        />
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          )}
         </Grid>
       </Box>
 
